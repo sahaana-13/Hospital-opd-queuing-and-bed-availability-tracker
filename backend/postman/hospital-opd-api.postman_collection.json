@@ -1,0 +1,250 @@
+{
+  "info": {
+    "name": "Hospital OPD Queuing and Bed Availability API",
+    "description": "Automated API coverage for the Express backend. Run in order with the local server and seeded database available.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "patientEmail", "value": "john.doe@example.com" },
+    { "key": "password", "value": "password123" },
+    { "key": "adminEmail", "value": "admin@hospital.com" },
+    { "key": "doctorEmail", "value": "aisha.khan@hospital.com" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": ["pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });"]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health and Authentication",
+      "item": [
+        {
+          "name": "Health check",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/health" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.message).to.eql('Server is healthy');"] } }]
+        },
+        {
+          "name": "Login patient and capture JWT",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{patientEmail}}\",\n  \"password\": \"{{password}}\"\n}" }, "url": "{{baseUrl}}/api/auth/login" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.token).to.be.a('string').and.not.empty;", "pm.expect(json.data.user.role).to.eql('PATIENT');", "pm.collectionVariables.set('patientToken', json.data.token);", "pm.collectionVariables.set('patientId', json.data.user.id);"] } }]
+        },
+        {
+          "name": "Login admin and capture JWT",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{password}}\"\n}" }, "url": "{{baseUrl}}/api/auth/login" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.token).to.be.a('string').and.not.empty;", "pm.expect(json.data.user.role).to.eql('ADMIN');", "pm.collectionVariables.set('adminToken', json.data.token);", "pm.collectionVariables.set('adminId', json.data.user.id);"] } }]
+        },
+        {
+          "name": "Login doctor and capture JWT",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{doctorEmail}}\",\n  \"password\": \"{{password}}\"\n}" }, "url": "{{baseUrl}}/api/auth/login" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.user.role).to.eql('DOCTOR');", "pm.collectionVariables.set('doctorToken', json.data.token);", "pm.collectionVariables.set('doctorId', json.data.user.id);"] } }]
+        },
+        {
+          "name": "Invalid login is rejected",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"john.doe@example.com\",\"password\":\"wrong-password\"}" }, "url": "{{baseUrl}}/api/auth/login" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 401', () => pm.response.to.have.status(401));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.message).to.match(/Invalid email or password/i);"] } }]
+        },
+        {
+          "name": "Missing auth is rejected",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/auth/me" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 401', () => pm.response.to.have.status(401));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.message).to.match(/no token/i);"] } }]
+        },
+        {
+          "name": "Current patient profile",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/auth/me" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.user.email).to.eql(pm.collectionVariables.get('patientEmail'));", "pm.expect(json.data.user.role).to.eql('PATIENT');"] } }]
+        },
+        {
+          "name": "Invalid registration validation",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"\",\"email\":\"not-an-email\",\"password\":\"123\",\"phone\":\"12\"}" }, "url": "{{baseUrl}}/api/auth/register" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 400', () => pm.response.to.have.status(400));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.message).to.match(/validation/i);", "pm.expect(json.error).to.be.an('array').and.not.empty;"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Departments and Doctors",
+      "item": [
+        {
+          "name": "List departments and capture IDs",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/departments" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.departments).to.be.an('array').and.not.empty;", "const department = json.data.departments[0];", "pm.expect(department).to.have.property('_id');", "pm.collectionVariables.set('departmentId', department._id);"] } }]
+        },
+        {
+          "name": "Get department",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/departments/{{departmentId}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.department._id).to.eql(pm.collectionVariables.get('departmentId'));"] } }]
+        },
+        {
+          "name": "List doctors and capture IDs",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/doctors?available=true" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.doctors).to.be.an('array').and.not.empty;", "const doctor = json.data.doctors[0];", "pm.expect(doctor).to.have.property('_id');", "pm.collectionVariables.set('doctorProfileId', doctor._id);", "pm.collectionVariables.set('bookingDoctorId', (json.data.doctors.find(d => d._id !== pm.collectionVariables.get('doctorProfileId')) || doctor)._id);"] } }]
+        },
+        {
+          "name": "Get doctor",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/doctors/{{doctorProfileId}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.doctor._id).to.eql(pm.collectionVariables.get('doctorProfileId'));"] } }]
+        },
+        {
+          "name": "Patient cannot access admin dashboard",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/admin/dashboard" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 403', () => pm.response.to.have.status(403));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.message).to.match(/not authorized|permission|role/i);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Patient Queue and Appointments",
+      "item": [
+        {
+          "name": "Book token",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"doctorId\":\"{{bookingDoctorId}}\"}" }, "url": "{{baseUrl}}/api/queue/book" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 201', () => pm.response.to.have.status(201));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.token).to.have.property('id');", "pm.expect(json.data.token).to.have.property('status', 'WAITING');", "pm.collectionVariables.set('tokenId', json.data.token.id);", "pm.collectionVariables.set('bookedDepartmentId', json.data.token.department);"] } }]
+        },
+        {
+          "name": "My active token",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/queue/my-token" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.token).to.have.property('id');"] } }]
+        },
+        {
+          "name": "Appointment history",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/queue/history" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.appointments).to.be.an('array').and.not.empty;"] } }]
+        },
+        {
+          "name": "Token status",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/queue/{{tokenId}}/status" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data).to.have.all.keys('currentServingToken', 'yourToken', 'peopleAhead', 'estimatedWaitTime', 'status');"] } }]
+        },
+        {
+          "name": "Department queue",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/queue/{{departmentId}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data).to.have.property('queue').that.is.an('array');"] } }]
+        },
+        {
+          "name": "Invalid booking validation",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/queue/book" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 400', () => pm.response.to.have.status(400));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.error).to.be.an('array').and.not.empty;"] } }]
+        },
+        {
+          "name": "Cancel token",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/queue/cancel/{{tokenId}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Wards, Beds, and Notifications",
+      "item": [
+        {
+          "name": "List wards",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/beds/wards" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.wards).to.be.an('array').and.not.empty;", "pm.collectionVariables.set('wardId', json.data.wards[0]._id);"] } }]
+        },
+        {
+          "name": "Bed availability",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/beds/availability" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data).to.be.an('object');"] } }]
+        },
+        {
+          "name": "List beds and capture a bed",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/beds?status=AVAILABLE" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.beds).to.be.an('array').and.not.empty;", "pm.collectionVariables.set('bedId', json.data.beds[0]._id);"] } }]
+        },
+        {
+          "name": "Get bed",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/beds/{{bedId}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.bed._id).to.eql(pm.collectionVariables.get('bedId'));"] } }]
+        },
+        {
+          "name": "Invalid bed status validation",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"INVALID\"}" }, "url": "{{baseUrl}}/api/beds/{{bedId}}/status" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 400', () => pm.response.to.have.status(400));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.error).to.be.an('array').and.not.empty;"] } }]
+        },
+        {
+          "name": "My notifications",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/notifications" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.notifications).to.be.an('array');", "pm.expect(json.data.unreadCount).to.be.a('number');", "if (json.data.notifications.length) pm.collectionVariables.set('notificationId', json.data.notifications[0]._id);"] } }]
+        },
+        {
+          "name": "Mark all notifications read",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/notifications/read-all" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);"] } }]
+        },
+        {
+          "name": "Invalid notification ID validation",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/notifications/not-an-id/read" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 400', () => pm.response.to.have.status(400));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.message).to.match(/Invalid notification ID/i);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Doctor APIs",
+      "item": [
+        {
+          "name": "Doctor profile",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }], "url": "{{baseUrl}}/api/doctor/profile/me" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.doctor).to.have.property('_id');"] } }]
+        },
+        {
+          "name": "Doctor queue",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }], "url": "{{baseUrl}}/api/doctor/queue" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data).to.have.property('queue').that.is.an('array');"] } }]
+        },
+        {
+          "name": "Doctor stats",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }], "url": "{{baseUrl}}/api/doctor/stats" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data).to.be.an('object');"] } }]
+        },
+        {
+          "name": "Patient cannot access doctor queue",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }], "url": "{{baseUrl}}/api/doctor/queue" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 403', () => pm.response.to.have.status(403));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Admin APIs",
+      "item": [
+        {
+          "name": "Admin dashboard",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/dashboard" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data).to.have.all.keys('patientsToday', 'waitingPatients', 'servingPatients', 'completedPatients', 'availableBeds', 'occupiedBeds', 'totalBeds', 'departmentStats', 'bedStats');"] } }]
+        },
+        {
+          "name": "Admin users",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/users?role=PATIENT" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.users).to.be.an('array').and.not.empty;", "pm.collectionVariables.set('targetUserId', json.data.users[0]._id);"] } }]
+        },
+        {
+          "name": "Admin user detail",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/users/{{targetUserId}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.user._id).to.eql(pm.collectionVariables.get('targetUserId'));"] } }]
+        },
+        {
+          "name": "Admin appointments",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/appointments" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.appointments).to.be.an('array');"] } }]
+        },
+        {
+          "name": "Admin queues",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/queues" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(true);", "pm.expect(json.data.queues).to.be.an('object');"] } }]
+        },
+        {
+          "name": "Invalid admin role filter",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/admin/users?role=INVALID" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 400', () => pm.response.to.have.status(400));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.message).to.match(/Invalid role/i);"] } }]
+        },
+        {
+          "name": "Admin cannot change own status",
+          "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"isActive\":true}" }, "url": "{{baseUrl}}/api/admin/users/{{adminId}}/status" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('HTTP 400', () => pm.response.to.have.status(400));", "const json = pm.response.json();", "pm.expect(json.success).to.eql(false);", "pm.expect(json.message).to.match(/own account status/i);"] } }]
+        }
+      ]
+    }
+  ]
+}
