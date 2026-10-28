@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: hospital-opd-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGO_URI
+        sync: false   # Set in Render dashboard — never commit this value
+      - key: JWT_SECRET
+        sync: false   # Set in Render dashboard — never commit this value
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: CLIENT_URL
+        sync: false   # Set to your Vercel frontend URL in Render dashboard

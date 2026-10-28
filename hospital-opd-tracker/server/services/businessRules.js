@@ -1,0 +1,3 @@
+export const VALID_TRANSITIONS = { WAITING: ['CALLED','SKIPPED','CANCELLED'], CALLED: ['IN_CONSULTATION','WAITING','SKIPPED','CANCELLED'], IN_CONSULTATION: ['COMPLETED'], COMPLETED: [], SKIPPED: ['WAITING','CANCELLED'], CANCELLED: [] };
+export function serviceDateFor(date = new Date()) { const y=date.getFullYear(), m=String(date.getMonth()+1).padStart(2,'0'), d=String(date.getDate()).padStart(2,'0'); return `${y}-${m}-${d}`; }
+export function estimateWaitingMinutes(peopleAhead, consultationMinutes) { return Math.max(0, Math.max(0, Number(peopleAhead)||0) * Math.max(0, Number(consultationMinutes)||0)); }

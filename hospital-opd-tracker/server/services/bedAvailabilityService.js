@@ -1,0 +1,5 @@
+import Bed from '../models/Bed.js';
+export async function availabilitySummary() {
+ const rows = await Bed.aggregate([{ $group:{ _id:'$ward', total:{ $sum:1 }, available:{ $sum:{ $cond:[{ $eq:['$status','AVAILABLE'] },1,0] } }, occupied:{ $sum:{ $cond:[{ $eq:['$status','OCCUPIED'] },1,0] } }, reserved:{ $sum:{ $cond:[{ $eq:['$status','RESERVED'] },1,0] } }, maintenance:{ $sum:{ $cond:[{ $eq:['$status','MAINTENANCE'] },1,0] } }, unavailable:{ $sum:{ $cond:[{ $eq:['$status','UNAVAILABLE'] },1,0] } } } }, { $lookup:{ from:'wards',localField:'_id',foreignField:'_id',as:'ward' } }, { $unwind:'$ward' }, { $project:{ _id:0,wardId:'$ward._id',wardName:'$ward.name',wardCode:'$ward.code',active:'$ward.active',total:1,available:1,occupied:1,reserved:1,maintenance:1,unavailable:1 } }, { $sort:{ wardName:1 } }]);
+ return { wards:rows, totals:rows.reduce((a,r)=>({ total:a.total+r.total,available:a.available+r.available,occupied:a.occupied+r.occupied,reserved:a.reserved+r.reserved,maintenance:a.maintenance+r.maintenance,unavailable:a.unavailable+r.unavailable }),{total:0,available:0,occupied:0,reserved:0,maintenance:0,unavailable:0}) };
+}

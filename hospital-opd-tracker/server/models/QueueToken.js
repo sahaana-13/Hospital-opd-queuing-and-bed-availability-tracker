@@ -1,0 +1,6 @@
+import mongoose from 'mongoose';
+const schema = new mongoose.Schema({ tokenNumber: { type: String, required: true }, sequence: { type: Number, required: true }, patient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true }, department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', required: true, index: true }, serviceDate: { type: String, required: true }, status: { type: String, enum: ['WAITING','CALLED','IN_CONSULTATION','COMPLETED','SKIPPED','CANCELLED'], default: 'WAITING', index: true }, createdAt: { type: Date, default: Date.now }, calledAt: Date, consultationStartedAt: Date, completedAt: Date, assignedDoctor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, note: { type: String, maxlength: 250 }, cancellationReason: { type: String, maxlength: 250 } }, { timestamps: true });
+schema.index({ department: 1, serviceDate: 1, sequence: 1 }, { unique: true });
+schema.index({ department: 1, serviceDate: 1, status: 1, sequence: 1 });
+schema.index({ patient: 1, department: 1, serviceDate: 1 }, { unique: true, partialFilterExpression: { status: { $in: ['WAITING','CALLED','IN_CONSULTATION'] } } });
+export default mongoose.model('QueueToken', schema);
